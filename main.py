@@ -18,8 +18,8 @@ def main():
     # 1. Assume mu = 1 packet/second, lambda = 0.1, 0.2, 0.4, 0.5, 0.6, 0.80, 0.90 packets/second when MAXBUFFER = inf
     # 2. Mathematically compute the mean queue lengths, server utilization - compare with 1.
     # 3. Assume mu = 1 packet/second, lambda = 0.2, 0.4, 0.5, 0.6, 0.8, 0.9 packets/second when MAXBUFFER = 1,20,30
-    arrival_rate = float(input("Please enter the arrival rate, μ: ")) # mu = 1 packet/seconds
-    service_rate = float(input("Please enter the service rate, λ ")) # lambda = 0.1, 0.2, 0.4, 0.5, 0.6, 0.80, 0.90
+    service_rate = float(input("Please enter the arrival rate, μ: ")) # mu = 1 packet/seconds
+    arrival_rate = float(input("Please enter the service rate, λ ")) # lambda = 0.1, 0.2, 0.4, 0.5, 0.6, 0.80, 0.90
                                                                      # lambda = 0.2, 0.4, 0.5, 0.6, 0.8, 0.9
     MAXBUFFER = float(input("Please enter the size of MAXBUFFER(type -1 for infinity): ")) # float('inf') or 1, 20, 30
 
@@ -31,59 +31,69 @@ def main():
     # The event time of the first arrival event is obtained by adding inter-arrival to the current time
     length = 0
     time = 0
-    prev_time = 0
     buffer = queue.Queue(MAXBUFFER)
     GEL = GlobalEventList.Global_Event_List()
-
-    # insert first arrival packet into the GEL
-    arr_time = negative_exponentially_distributed_time(arrival_rate)
-    pak = Packet.Packet(negative_exponentially_distributed_time(service_rate))
-    GEL.insert(time + arr_time, True, pak)
-
+    GEL.insert(time + negative_exponentially_distributed_time(arrival_rate), True)
 
     # Statistics
     # Utilization: what fraction of time server busy -> keep running count of the times server is busy
     # time for server busy / total time
     # Mean queue length: sum of the area under the curve / total time
     # Number of packets  dropped: keep running  count of packets dropped, when it arrives at the buffer
-    server_busy_time = 0    # server_busy_time / time
-    server_start_time = 0   # the start time when queuelength > 0
-    server_end_time = 0     # the end time when queuelength = 0
-    server_start = -1       # time - server_start  = server operating time
-                            # check when it changes
-    area = 0                # area += packet length * time
-    curr_length = 0         # curr_length = length
-    prev_length = 0         # packet length in every step -> prev_length = curr_length
+    server_busy_time = 0 # server_busy_time / time
+    server_start = -1 # time - server_start  = server operating time
+                      # check when it changes
+    area = 0 # area += packet length * time
+    width = 0
+    prev_time = 0
+    curr_length = 0 # curr_length = length
+    prev_length = 0 # packet length in every step -> prev_length = curr_length
     dropped_packet = 0
 
-    # Simulation starts
+    # Clock starts
     for i in range(0, 100000):
         # Set current time to be event time
         current_event = GEL.remove()
         time = current_event.time()
+        width = time - prev_time
+        prev_time = time
 
-        # Arrival event process
-        if current_event.is_arrival:
-            # schedule the next arrival event and insert into GEL
-            next_packet = Packet(negative_exponentially_distributed_time(service_rate))
-            GEL.insert(time + negative_exponentially_distributed_time(arrival_rate), True, next_packet)
-
+        if current_event.is_arrival == True:
+            # generate one arrival at a time -> schedule the next arrival
+            new_packet = Packet(negative_exponentially_distributed_time(arrival_rate))
+            GEL.insert(time + negative_exponentially_distributed_time(service_rate),True)
             # Process Arrival Event -> deal with packet / buffer (queue) / GE
+            if length == 0 and MAXBUFFER > 0: # server is free
 
-            if length == 0:                       # server is free, transmit immediately -> create departure event
-                GEL.insert(time + current_event.packet.service_time, False, current_event.packet)
 
-            elif length > 0:
-                if MAXBUFFER > length - 1:        # server is busy, add packet to the queue
-                    buffer.put(current_event.packet)
-                    length += 1
-                else:                             # exceed buffer size, drop packet
-                    dropped_packet += 1
+            elif length > 0 and MAXBUFFER > 0: # server is busy
+                if length - 1  < MAXBUFFER:
+                    buffer.put(new_packet)
+                    length+=1
+                elif length - 1 >= MAXBUFFER:
+                    dropped_packet+=1
 
-                server_start_time = time
+            elif MAXBUFFER == -1: # infinite buffer size
 
-        # Departure event process
-        else:
+
+            # Find the time of next arrival, current time, and then + randomly generated time with lamda = inter-arrival
+            # Create a new packet and determine its service time = transmission time = randomly generated with mu
+            # Create new arrival event
+            # insert the event into the GEL, make sure it to be ordered in time, later event at later node
+            # a) server is free, length == 0
+            # packet immediately transmission, deaprture time = current time + transmission time
+            # 1. get the service time
+            # 2. create departure event at time = current + transmission time
+            # 3. insert the event into GEL (sorted order)
+            # b) server is busy, length > 0
+            # -> if the  queue is not full, length - 1 < MAXBUFFER
+            # put packet into  the queue
+            # -> if the queue is full
+            # drop the packet and record dropped packet
+            # since new arrival event, increment the length
+            # update statistics which maintain the mean queue-length and server busy time
+
+        elif current_event.is_arrival  == False:
             # Process Departure Event -> deal with server / GEL
             # set current time = event time
             # update statistics which maintain the mean queue-length and server busy time
@@ -108,7 +118,7 @@ def main():
                 GEL.insert(time + departure_event.getServiceTime(),False)
 
         curr_length = length
-        area += prev_length * arrival_rate
+        area += prev_length * width
         prev_length = curr_length
 
         # for arrival
