@@ -8,8 +8,9 @@ class Global_Event_List(object):
         self.head = None
         self.tail = None
 
-    def insert(self, time, is_arrival): # insert event
-        new_event = Event(time, None, None, None, is_arrival)
+    # NOTICE: Added another parameter "PACKET"
+    def insert(self, time, is_arrival,packet): # insert event
+        new_event = Event(time, packet, None, None, is_arrival)
 
         if self.head is None:
             self.head = self.tail = new_event
