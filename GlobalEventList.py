@@ -1,4 +1,4 @@
-import Event
+from Event import Event
 import Packet
 # Double Linked List sorted in increasing order
 # https://www.geeksforgeeks.org/create-doubly-linked-list-using-double-pointer-inserting-nodes-list-remains-ascending-order/
@@ -7,34 +7,39 @@ class Global_Event_List(object):
     def __init__(self):
         self.head = None
         self.tail = None
-
+        self.num_event = 0
     # NOTICE: Added another parameter "PACKET"
-    def insert(self, time, is_arrival,packet): # insert event
+    def insert(self, time, is_arrival, packet): # insert event
         new_event = Event(time, packet, None, None, is_arrival)
 
         if self.head is None:
             self.head = self.tail = new_event
             return None
-
         else:
             curr_event = self.head
             while curr_event is not None:
                 if curr_event.time > new_event.time:
-                    new_event.next = curr_event
-                    new_event.prev = curr_event.prev
-                    curr_event.prev = new_event
-
-                    if curr_event == self.head:
+                    if curr_event == self.head:          # add to the front
                         self.head = new_event
-                    else:
-                        new_event.prev.next = new_event # refers to current node as long as x.prev not null
-                    break
+                        new_event.next = curr_event
+                        curr_event.prev = new_event
+                    else:                                # insert in the middle
+                        new_event.next = curr_event
+                        new_event.prev = curr_event.prev
+                        curr_event.prev.next = new_event
+                        curr_event.prev = new_event
+                    return
+                curr_event = curr_event.next
 
-            if curr_event.time < new_event.time:
-                new_event.next = curr_event.next
-                curr_event.next.prev = new_event # refers to current node as long as x.next not null
-                curr_event.next = new_event
-                new_event.prev = curr_event
+
+                # add to the end of list
+                new_event.next = None
+                new_event.prev = self.tail
+                self.tail.next = new_event
+                self.tail = new_event
+
+        self.num_event += 1
+
 
     def remove(self): # remove event
         if self.head is None:
@@ -42,7 +47,7 @@ class Global_Event_List(object):
         else:
             curr_event = self.head
             self.head = curr_event.next
-            self.head.prev = None
+            # self.head.prev = None
         return curr_event
 
     def print(self): # testing if the times are sorted in increasing order
